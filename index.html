@@ -1,0 +1,297 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>作業9</title>
+    <style>
+        html{
+            font-size: 20px;
+        }
+        input{
+            font-size: 1rem;
+            width: 4rem;
+            height: 2rem;
+            margin: 1rem;
+        }
+        #svgShow{
+            border: 1px solid gray;
+        }
+        #btnGo, #btnReset{
+            font-size: 1rem;
+            width: 4rem;
+            border: none;
+            border-radius: 0.5rem;
+            
+            padding: 5px
+        }
+        .goHover {
+            background-color: darkturquoise;
+        }
+        .resetHover {
+            background-color: lightskyblue;
+        }
+        span{
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+        .moving{
+            background-color: mediumaquamarine;
+        }
+    </style>
+    <script>
+        var svgWidth = 640, svgHeight = 375, padLeft = 20, padTop = 10;
+    </script>
+</head>
+<body onload="init()">
+    <input type="number" id="inputCount" value="3" step="1" max="10" min="3" />
+    <button id="btnGo">開始</button>  <button id="btnReset" disabled>重來</button> <span>Count: </span><span id="spanCount">0</span>
+    <p></p>
+    <svg id="svgShow"></svg>
+    <p id="pShow"></p>
+    <script>
+        var stepCount = 0, xmls = 'http://www.w3.org/2000/svg', bSize = 30, padTop = 100, padLeft = 50;
+        const colorList = ['wheat', 'lightgreen', 'aqua', 'blanchedalmond', 'khaki', 'mistyrose', 'cornsilk', 'turquoise', 'peachpuff', 'lightblue', 'burlywood', 'lightpink'];
+        const inputCount = document.getElementById('inputCount');
+        const pShow = document.getElementById('pShow');
+        const btnGo = document.getElementById('btnGo');
+        const svgShow = document.getElementById('svgShow');
+        const spanCount = document.getElementById('spanCount');
+
+        var movingBar, toBar, movingInterval, movingTop, targetX, targetY;
+        var movePairList = [], nextIndex;
+
+        function init() {
+            btnGo.addEventListener('click', event => {
+                event.target.disabled = true;
+                btnReset.disabled = false;
+                inputCount.disabled = true;
+                getMoveString();
+                nextIndex = 0;
+                let startPair = movePairList[nextIndex];
+                moveBlock(startPair.fromIdx, startPair.toIdx);      // 開始移
+                event.target.className = '';
+            });
+            btnGo.addEventListener('mouseover', event => {
+                event.target.className = 'goHover';
+            });
+            btnGo.addEventListener('mouseleave', event => {
+                event.target.className = '';
+            });
+
+            btnReset.addEventListener('click', event => {
+                event.target.disabled = true;
+                btnGo.disabled = false;
+                inputCount.disabled = false;
+                if (movingInterval) {
+                    window.clearInterval(movingInterval);
+                }
+                RefreshSVG(stepCount);
+                spanCount.textContent = 0;
+                event.target.className = '';
+            });
+            btnReset.addEventListener('mouseover', event => {
+                event.target.className = 'resetHover';
+            });
+            btnReset.addEventListener('mouseleave', event => {
+                event.target.className = '';
+            });
+
+            inputCount.addEventListener('change', inputCountChange);
+
+            inputCountChange();                             // 至少動一次
+        }
+
+        function Hanoi(moveCount, fromIdx, toIdx){          // recursion
+            let remainIdx = 3 - fromIdx - toIdx;
+
+            if (moveCount == 1) {                                       // base condition
+                movePairList.push(movePair(fromIdx, toIdx));
+            }
+            else if (moveCount == 2) {                                  // base condition
+                movePairList.push(movePair(fromIdx, remainIdx));
+                movePairList.push(movePair(fromIdx, toIdx));
+                movePairList.push(movePair(remainIdx, toIdx));
+            }
+            else{                                                       // step condition
+                Hanoi(moveCount-1, fromIdx, remainIdx);
+                Hanoi(1, fromIdx, toIdx);
+                Hanoi(moveCount-1, remainIdx, toIdx);
+            }
+        }
+        
+        function moveBlock(fromIdx, toIdx) {
+            //let fromGroup = [];
+            //document.querySelectorAll(`[data-position="${fromIdx}"]`).forEach(dom => fromGroup.push(dom));
+            //console.log(fromGroup);
+            //let toGroup = document.querySelectorAll(`[data-position="${toIdx}"]`);
+            //let topFrom = fromGroup.reduce((a, b) => {                                        // 直接 querySelector 失敗再考慮 .reduce()
+            //    console.log(a);
+            //    console.log(b);
+            //    return parseInt(a.y) < parseInt(b.y) ? a : b;
+            //});
+            //console.log(topFrom);
+
+            document.getElementById('move' + nextIndex).className = 'moving';   // 將 span#move{n} 加底色
+            spanCount.textContent = nextIndex + 1;
+            movingBar = document.querySelector(`[data-position="${fromIdx}"]`);     // 取來源柱子該 data-position 最上面的 dom
+            toBar = document.querySelector(`[data-position="${toIdx}"]`);           // 取目標柱子該 data-position 最上面的 dom
+            movingInterval = window.setInterval(() => {
+                if (toBar) {                                                    // 有取到 toBar 表示要移去的目標柱子已經有橫 bar，
+                    targetY = parseInt(toBar.getAttribute('y')) - bSize;        // 那就疊到那個橫 bar 的上面
+                }
+                else {                                                          // 若 toBar == undefined 表示目標柱子不存在橫 bar，只有柱子
+                    targetY = padTop + stepCount * bSize;                       // 那就放在最底層
+                }
+                movingCallback('u', fromIdx, toIdx);                            // 開始移，第一步都是朝上 'u'
+            }, 5);
+        }
+        function movingCallback(direction, fromIdx, toIdx) {
+            switch (direction) {
+                case 'u': {                                                     // 往上移
+                    let oldY = parseInt(movingBar.getAttribute('y'));
+                    if (oldY <= movingTop) {                                    // 檢查是否到頂部
+                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval 
+
+                        let oldX = parseInt(movingBar.getAttribute('x'));       // 開始轉向
+                        targetX = oldX + (toIdx - fromIdx) * bSize * (stepCount * 2 + 2);
+                        if (fromIdx < toIdx) {
+                            movingInterval = window.setInterval(() => {
+                                movingCallback('r', fromIdx, toIdx);            // 當下一個 toIdx 在 fromIdx 右邊，往 'r' 走
+                            }, 5);
+                        }
+                        else {
+                            movingInterval = window.setInterval(() => {
+                                movingCallback('l', fromIdx, toIdx);            // 當下一個 toIdx 在 fromIdx 左邊，往 'l' 走
+                            }, 5);
+                        }
+                        return;
+                    }
+                    let newY = (oldY - 3) <= movingTop ? movingTop : (oldY - 3);    // 原來橫 bar 的 y 若 -3（往上 3px）會觸頂，就固定；還沒觸頂就上移 3px
+                    movingBar.setAttribute('y', newY);
+                    break;
+                }
+
+                case 'd': {                                                     // 往下移
+                    let oldY = parseInt(movingBar.getAttribute('y'));
+                    if (oldY == targetY) {                                      // 檢查是否到底部
+                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval
+                        movingBar.setAttribute('data-position', toIdx);         // 更新此橫 bar 的 position
+                        nextIndex++;                                            // 下一個 move pair
+                        if (nextIndex < movePairList.length) {                  // 若還沒到最後一個，
+                            let nextPair = movePairList[nextIndex];
+                            moveBlock(nextPair.fromIdx, nextPair.toIdx);        // 移下一個
+                        }
+                        return;                                                 // 最nextIndex++ 為最後，則結束
+                    }
+                    let newY = (oldY + 3) >= targetY ? targetY : (oldY + 3);    // 原來橫 bar 的 y 若 +3（往下 3px）會觸底，就固定；還沒觸頂就下移 3px
+                    movingBar.setAttribute('y', newY);
+                    break;
+                }
+                case 'l': {                                                     // 往左移
+                    let oldX = parseInt(movingBar.getAttribute('x'));
+                    if (oldX == targetX) {                                      // 檢查是否到最左邊緣
+                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval
+                        movingInterval = window.setInterval(() => {
+                            movingCallback('d', fromIdx, toIdx);                // 往下走
+                        }, 5);
+                        return;
+                    }
+                    let newX = (oldX - 5 <= targetX) ? (targetX) : (oldX - 5);  // 原來橫 bar 的 x 若 -5（往左 5px）會到左邊縁，就固定；還沒到就左移 5px
+                    movingBar.setAttribute('x', newX);
+                    break;
+                }
+                case 'r': {                                                     // 往右移
+                    let oldX = parseInt(movingBar.getAttribute('x'));
+                    if (oldX == targetX) {                                      // 檢查是否到最右邊緣
+                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval
+
+                        movingInterval = window.setInterval(()=>{
+                            movingCallback('d', fromIdx, toIdx);                // 往下走
+                        }, 5);
+                        return;
+                    }
+                    let newX = (oldX + 5 >= targetX) ? (targetX) : (oldX + 5);  // 原來橫 bar 的 x 若 +5（往右 5px）會到右邊縁，就固定；還沒到就右移 5px
+                    movingBar.setAttribute('x', newX);
+                    break;
+                }
+                default:
+            }
+        }
+        function RefreshSVG(n) {
+            svgShow.innerHTML = '';
+            svgShow.setAttribute('width', padLeft * 2 + bSize * (3 * (2 * n + 1) + 2));
+            svgShow.setAttribute('height', padTop + bSize * (n + 3));
+
+            let docFrag = document.createDocumentFragment();
+            for (let i = 0; i < 3; i++) {                                   // 畫 3 條直柱子
+                let domRect = document.createElementNS(xmls, 'rect');
+                domRect.setAttribute('width', bSize * 0.5);
+                domRect.setAttribute('height', bSize * (n + 1));
+                domRect.setAttribute('x', padLeft + bSize * (n + 0.25 + i * (n + 1) * 2));
+                domRect.setAttribute('y', padTop);
+                domRect.setAttribute('stroke', 'gray');
+                domRect.setAttribute('fill', 'gray');
+
+                docFrag.appendChild(domRect);
+            }
+            for (let i = 0; i < n; i++) {                                   // 畫 n 條橫bar
+                let domRect = document.createElementNS(xmls, 'rect');
+                domRect.setAttribute('data-position', 0);
+                domRect.setAttribute('id', 'bar' + i);                      // 其實好像也不需要
+                domRect.setAttribute('width', bSize * (2 * i + 3));
+                domRect.setAttribute('height', bSize);
+                domRect.setAttribute('x', padLeft + bSize * (n - 1 - i));
+                domRect.setAttribute('y', padTop + bSize * (i + 1));
+                domRect.setAttribute('stroke', colorList[i]);
+                domRect.setAttribute('fill', colorList[i]);
+
+                docFrag.appendChild(domRect);
+            }
+            
+
+
+            let domBottom = document.createElementNS(xmls, 'rect');         // 畫底座
+            domBottom.setAttribute('width', bSize * (3 * (2 * n + 1 )+ 2 ));
+            domBottom.setAttribute('height', bSize / 2);
+            domBottom.setAttribute('x', padLeft);
+            domBottom.setAttribute('y', padTop + bSize * (n + 1));
+            domBottom.setAttribute('stroke', 'gray');
+            domBottom.setAttribute('fill', 'gray');
+            docFrag.appendChild(domBottom);
+
+            svgShow.appendChild(docFrag);
+        }
+
+        function getMoveString() {
+            let docFrag = document.createDocumentFragment();
+            let count = 0;
+            pShow.textContent = '';
+            movePairList.forEach( obj => {                                  // 走訪 move pair 將他們做成 span 放進 pShow 裡
+                let domSpan = document.createElement('span');
+                domSpan.textContent = `(${obj.fromIdx},${obj.toIdx})`;
+                domSpan.setAttribute('id', 'move' + count);
+                docFrag.appendChild(domSpan);
+                count++;
+            });
+
+            pShow.appendChild(docFrag);
+        }
+
+        function inputCountChange() {
+            stepCount = parseInt(inputCount.value);
+            RefreshSVG(stepCount);                      // 重建svg#svgShow的內容，固定3個直柱，1個底板，依stepCount數量決定n個橫bar
+            movingTop = padTop - bSize * 2;             // 橫bar往上移的界限
+            movePairList = [];                          // 清空
+            Hanoi(stepCount, 0, 2);                     // 預設從最左移到最右，先取得步驟 movePairList
+            getMoveString();                            // 將結果產生在 p#pShow 裡面，以 span#move{n} 產生，方便之後加背景
+        }
+
+        function movePair(fromIdx, toIdx) {             // move pair 的 object literal
+            return {
+                fromIdx,
+                toIdx
+            };
+        }
+    </script>
+</body>
+</html>

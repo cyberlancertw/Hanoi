@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>河內塔</title>
+    <title>作業9 - 河內塔</title>
     <style>
         html{
             font-size: 20px;
@@ -11,7 +11,7 @@
             font-size: 1rem;
             width: 4rem;
             height: 2rem;
-            margin: 1rem;
+            margin: 0.5rem;
         }
         #svgShow{
             border: 1px solid gray;
@@ -21,7 +21,6 @@
             width: 4rem;
             border: none;
             border-radius: 0.5rem;
-            
             padding: 5px
         }
         .goHover {
@@ -29,10 +28,6 @@
         }
         .resetHover {
             background-color: lightskyblue;
-        }
-        span{
-            padding-left: 5px;
-            padding-right: 5px;
         }
         .moving{
             background-color: mediumaquamarine;
@@ -43,28 +38,40 @@
     </script>
 </head>
 <body onload="init()">
-    <input type="number" id="inputCount" value="3" step="1" max="10" min="3" />
-    <button id="btnGo">開始</button>  <button id="btnReset" disabled>重來</button> <span>Count: </span><span id="spanCount">0</span>
+    <label for="inputCount">層數：</label>
+    <input type="number" id="inputCount" value="3" step="1" max="20" min="1" />
+    <button id="btnGo">開始</button>
+    <button id="btnReset" disabled>重來</button>
+
+    <label for="inputSize">大小：</label>
+    <input type="number" id="inputSize" value="30" step="1" max="40" min="10" />
     <p></p>
+
     <svg id="svgShow"></svg>
     <p id="pShow"></p>
     <script>
         var stepCount = 0, xmls = 'http://www.w3.org/2000/svg', bSize = 30, padTop = 100, padLeft = 50;
-        const colorList = ['wheat', 'lightgreen', 'aqua', 'blanchedalmond', 'khaki', 'mistyrose', 'cornsilk', 'turquoise', 'peachpuff', 'lightblue', 'burlywood', 'lightpink'];
+        const colorList = ['wheat', 'lightgreen', 'aqua', 'blanchedalmond', 'khaki', 'mistyrose', 'cornsilk', 'turquoise', 'peachpuff', 'skyblue', 'lightblue', 'floralwhite', 'burlywood', 'lightpink', 'deepskyblue', 'plum', 'antiquewhite', 'darkkhaki', 'cornflowerblue','darkmagenta'];
         const inputCount = document.getElementById('inputCount');
+        const inputSize = document.getElementById('inputSize');
         const pShow = document.getElementById('pShow');
         const btnGo = document.getElementById('btnGo');
         const svgShow = document.getElementById('svgShow');
-        const spanCount = document.getElementById('spanCount');
+
 
         var movingBar, toBar, movingInterval, movingTop, targetX, targetY;
         var movePairList = [], nextIndex;
 
         function init() {
             btnGo.addEventListener('click', event => {
+                if (isNaN(stepCount) || isNaN(bSize) || stepCount < 1 || stepCount > 20 || bSize < 5 || bSize > 40) {
+                    return;
+                }
                 event.target.disabled = true;
                 btnReset.disabled = false;
                 inputCount.disabled = true;
+                inputSize.disabled = true;
+
                 getMoveString();
                 nextIndex = 0;
                 let startPair = movePairList[nextIndex];
@@ -82,11 +89,13 @@
                 event.target.disabled = true;
                 btnGo.disabled = false;
                 inputCount.disabled = false;
+                inputSize.disabled = false;
+
                 if (movingInterval) {
                     window.clearInterval(movingInterval);
                 }
                 RefreshSVG(stepCount);
-                spanCount.textContent = 0;
+                getMoveString();
                 event.target.className = '';
             });
             btnReset.addEventListener('mouseover', event => {
@@ -97,34 +106,31 @@
             });
 
             inputCount.addEventListener('change', inputCountChange);
+            inputSize.addEventListener('change', inputCountChange);
 
             inputCountChange();                             // 至少動一次
         }
 
-        function Hanoi(moveCount, fromIdx, toIdx){          // recursion
+        function Hanoi(moveCount, fromIdx, toIdx) {          // recursion
             let remainIdx = 3 - fromIdx - toIdx;
 
             if (moveCount == 1) {                                       // base condition
                 movePairList.push(movePair(fromIdx, toIdx));
             }
-            else if (moveCount == 2) {                                  // base condition
-                movePairList.push(movePair(fromIdx, remainIdx));
-                movePairList.push(movePair(fromIdx, toIdx));
-                movePairList.push(movePair(remainIdx, toIdx));
-            }
-            else{                                                       // step condition
-                Hanoi(moveCount-1, fromIdx, remainIdx);
+
+            else {                                                       // step condition
+                Hanoi(moveCount - 1, fromIdx, remainIdx);
                 Hanoi(1, fromIdx, toIdx);
-                Hanoi(moveCount-1, remainIdx, toIdx);
+                Hanoi(moveCount - 1, remainIdx, toIdx);
             }
         }
-        
+
         function moveBlock(fromIdx, toIdx) {
             //let fromGroup = [];
             //document.querySelectorAll(`[data-position="${fromIdx}"]`).forEach(dom => fromGroup.push(dom));
             //console.log(fromGroup);
             //let toGroup = document.querySelectorAll(`[data-position="${toIdx}"]`);
-            //let topFrom = fromGroup.reduce((a, b) => {                                        // 直接 querySelector 失敗再考慮 .reduce()
+            //let topFrom = fromGroup.reduce((a, b) => {                                        // 直接 querySelector 若失敗，再考慮用 .reduce()
             //    console.log(a);
             //    console.log(b);
             //    return parseInt(a.y) < parseInt(b.y) ? a : b;
@@ -132,7 +138,7 @@
             //console.log(topFrom);
 
             document.getElementById('move' + nextIndex).className = 'moving';   // 將 span#move{n} 加底色
-            spanCount.textContent = nextIndex + 1;
+            document.getElementById('countText').textContent = `Count: ${nextIndex + 1}`;
             movingBar = document.querySelector(`[data-position="${fromIdx}"]`);     // 取來源柱子該 data-position 最上面的 dom
             toBar = document.querySelector(`[data-position="${toIdx}"]`);           // 取目標柱子該 data-position 最上面的 dom
             movingInterval = window.setInterval(() => {
@@ -150,7 +156,7 @@
                 case 'u': {                                                     // 往上移
                     let oldY = parseInt(movingBar.getAttribute('y'));
                     if (oldY <= movingTop) {                                    // 檢查是否到頂部
-                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval 
+                        window.clearInterval(movingInterval);                   // 是的話清掉 setInterval
 
                         let oldX = parseInt(movingBar.getAttribute('x'));       // 開始轉向
                         targetX = oldX + (toIdx - fromIdx) * bSize * (stepCount * 2 + 2);
@@ -205,7 +211,7 @@
                     if (oldX == targetX) {                                      // 檢查是否到最右邊緣
                         window.clearInterval(movingInterval);                   // 是的話清掉 setInterval
 
-                        movingInterval = window.setInterval(()=>{
+                        movingInterval = window.setInterval(() => {
                             movingCallback('d', fromIdx, toIdx);                // 往下走
                         }, 5);
                         return;
@@ -222,7 +228,12 @@
             svgShow.setAttribute('width', padLeft * 2 + bSize * (3 * (2 * n + 1) + 2));
             svgShow.setAttribute('height', padTop + bSize * (n + 3));
 
+            bSize = parseInt(inputSize.value);
+            if (isNaN(bSize) || bSize > 40 || bSize < 5) {
+                return;
+            }
             let docFrag = document.createDocumentFragment();
+
             for (let i = 0; i < 3; i++) {                                   // 畫 3 條直柱子
                 let domRect = document.createElementNS(xmls, 'rect');
                 domRect.setAttribute('width', bSize * 0.5);
@@ -247,17 +258,26 @@
 
                 docFrag.appendChild(domRect);
             }
-            
+
 
 
             let domBottom = document.createElementNS(xmls, 'rect');         // 畫底座
-            domBottom.setAttribute('width', bSize * (3 * (2 * n + 1 )+ 2 ));
+            domBottom.setAttribute('width', bSize * (3 * (2 * n + 1) + 2));
             domBottom.setAttribute('height', bSize / 2);
             domBottom.setAttribute('x', padLeft);
             domBottom.setAttribute('y', padTop + bSize * (n + 1));
             domBottom.setAttribute('stroke', 'gray');
             domBottom.setAttribute('fill', 'gray');
             docFrag.appendChild(domBottom);
+
+            let domText = document.createElementNS(xmls, 'text');
+            domText.textContent = 'Count: 0';
+            domText.setAttribute('id', 'countText');
+            domText.setAttribute('x', parseInt(svgShow.getAttribute('width')) / 2 - bSize * 2 );
+            domText.setAttribute('y', parseInt(svgShow.getAttribute('height')) - bSize / 2);
+            domText.setAttribute('style', `font-size:${(bSize-10)*4/15 +12}px`);
+            
+            docFrag.appendChild(domText);
 
             svgShow.appendChild(docFrag);
         }
@@ -266,7 +286,7 @@
             let docFrag = document.createDocumentFragment();
             let count = 0;
             pShow.textContent = '';
-            movePairList.forEach( obj => {                                  // 走訪 move pair 將他們做成 span 放進 pShow 裡
+            movePairList.forEach(obj => {                                  // 走訪 move pair 將他們做成 span 放進 pShow 裡
                 let domSpan = document.createElement('span');
                 domSpan.textContent = `(${obj.fromIdx},${obj.toIdx})`;
                 domSpan.setAttribute('id', 'move' + count);
@@ -279,11 +299,13 @@
 
         function inputCountChange() {
             stepCount = parseInt(inputCount.value);
-            RefreshSVG(stepCount);                      // 重建svg#svgShow的內容，固定3個直柱，1個底板，依stepCount數量決定n個橫bar
-            movingTop = padTop - bSize * 2;             // 橫bar往上移的界限
-            movePairList = [];                          // 清空
-            Hanoi(stepCount, 0, 2);                     // 預設從最左移到最右，先取得步驟 movePairList
-            getMoveString();                            // 將結果產生在 p#pShow 裡面，以 span#move{n} 產生，方便之後加背景
+            if (stepCount >= 1 && stepCount <= 20) {
+                RefreshSVG(stepCount);                      // 重建svg#svgShow的內容，固定3個直柱，1個底板，依stepCount數量決定n個橫bar
+                movingTop = padTop - bSize * 2;             // 橫bar往上移的界限
+                movePairList = [];                          // 清空
+                Hanoi(stepCount, 0, 2);                     // 預設從最左移到最右，先取得步驟 movePairList
+                getMoveString();                            // 將結果產生在 p#pShow 裡面，以 span#move{n} 產生，方便之後加背景
+            }
         }
 
         function movePair(fromIdx, toIdx) {             // move pair 的 object literal
